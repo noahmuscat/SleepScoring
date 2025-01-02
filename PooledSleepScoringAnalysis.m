@@ -1,6 +1,8 @@
-%% Main Data Analysis
+%% Main Data Aggregation
 % Define the base folder for the 300 Lux lighting condition
-baseFolder = '/pathTo/Canute/300Lux/';
+baseFolder = '/data/Jeremy/Sleepscoring_Data_Noah/Canute/300Lux';
+[~, condition] = fileparts(baseFolder); % Extract '300Lux' as condition
+[~, animalName] = fileparts(fileparts(baseFolder)); % Get animal name 'Canute'
 
 % Get a list of all subfolders in the base folder
 subFolders = dir(baseFolder);
@@ -9,6 +11,10 @@ subFolders = subFolders(~ismember({subFolders.name}, {'.', '..'}));  % Remove '.
 
 % Initialize variables for pooled data
 allZTData = [];
+allBoutDurations = struct('WAKEstate', [], 'NREMstate', [], 'REMstate', []);
+allInterBoutIntervals = struct('WAKEstate', [], 'NREMstate', [], 'REMstate', []);
+allAvgDaytimeStateLengths = struct('WAKEstate', [], 'NREMstate', [], 'REMstate', []);
+allAvgNighttimeStateLengths = struct('WAKEstate', [], 'NREMstate', [], 'REMstate', []);
 
 % Iterate through all subfolders and process the data
 for k = 1:length(subFolders)
@@ -21,17 +27,56 @@ for k = 1:length(subFolders)
         % Extract sleep state intervals and timestamped sleep states from the .mat file
         [sleepIntervals, sleepStates, appropriateTimestamps, ZTData] = getDataFromMatFile(fullFilePath);
         
+        % Replace invalid sleep states with NaN
+        sleepStates(~ismember(sleepStates, [1, 3, 5])) = NaN;
+        ZTData.Sleep_State(~ismember(ZTData.Sleep_State, [1, 3, 5])) = NaN;
+
         % Append ZTData to the pooled data
         allZTData = [allZTData; ZTData];
+        
+        % Calculate sleep bout duration averages
+        [boutDurations, numBouts] = calculateBoutDurations(sleepIntervals);
+        allBoutDurations = aggregateStructData(allBoutDurations, boutDurations);
+        
+        % Compute inter-bout intervals
+        interBoutIntervals = computeInterBoutIntervals(sleepIntervals);
+        allInterBoutIntervals = aggregateStructData(allInterBoutIntervals, interBoutIntervals);
+        
+        % Average state length during daytime vs nighttime
+        [avgDaytimeStateLengths, avgNighttimeStateLengths] = computeDayNightStateLengths(sleepIntervals, appropriateTimestamps);
+        allAvgDaytimeStateLengths = aggregateStructData(allAvgDaytimeStateLengths, avgDaytimeStateLengths);
+        allAvgNighttimeStateLengths = aggregateStructData(allAvgNighttimeStateLengths, avgNighttimeStateLengths);
     end
 end
-
+%% plotting
 % Calculate the average sleep state occupancy for each ZT hour
 pooledStateOccupancy = calculateStateOccupancy(allZTData);
 
 % Plot the pooled sleep state occupancy
-plotStateOccupancy(pooledStateOccupancy);
+plotStateOccupancy(pooledStateOccupancy, animalName, condition);
 
+% Calculate and plot pooled average bout durations
+pooledAvgBoutDurations = computeAverageBoutDurations(allBoutDurations);
+disp('Pooled Average Bout Durations:');
+disp(pooledAvgBoutDurations);
+plotBarGraph(pooledAvgBoutDurations, 'Average Bout Duration (s)', 'Pooled Average Bout Durations', animalName, condition);
+
+% Calculate and plot pooled inter-bout intervals
+pooledInterBoutIntervals = computeAverageDurations(allInterBoutIntervals);
+disp('Pooled Inter-Bout Intervals:');
+disp(pooledInterBoutIntervals);
+plotBarGraph(pooledInterBoutIntervals, 'Average Inter-Bout Interval (s)', 'Pooled Inter-Bout Intervals', animalName, condition);
+
+% Calculate and plot pooled average daytime and nighttime state lengths
+pooledAvgDaytimeStateLengths = computeAverageDurations(allAvgDaytimeStateLengths);
+pooledAvgNighttimeStateLengths = computeAverageDurations(allAvgNighttimeStateLengths);
+disp('Pooled Average Daytime State Lengths:');
+disp(pooledAvgDaytimeStateLengths);
+disp('Pooled Average Nighttime State Lengths:');
+disp(pooledAvgNighttimeStateLengths);
+plotDayNightComparison(pooledAvgDaytimeStateLengths, pooledAvgNighttimeStateLengths, 'Average State Length (s)', 'Pooled Average State Length by Day/Night', animalName, condition);
+
+% Display the first 10 rows of the pooled ZT data
 disp('ZT Data (first 10 rows of pooled data):');
 disp(allZTData(1:10, :));
 
@@ -123,6 +168,9 @@ function stateOccupancy = calculateStateOccupancy(ZTData)
         % Extract the data for the current ZT hour
         currentData = ZTData(ZTData.ZT_Hour == ztHour, :);
         
+        % Exclude NaN values
+        currentData = currentData(~isnan(currentData.Sleep_State), :);
+
         % Calculate the percentage of each sleep state for the current ZT hour
         if ~isempty(currentData)
             totalCount = height(currentData);
@@ -134,7 +182,7 @@ function stateOccupancy = calculateStateOccupancy(ZTData)
 end
 
 %% Function to plot sleep state occupancy
-function plotStateOccupancy(stateOccupancy)
+function plotStateOccupancy(stateOccupancy, animalName, condition)
     % Create a stacked bar graph showing the average percentage of each sleep state per ZT hour
     figure;
     b = bar(stateOccupancy.ZT_Hour, [stateOccupancy.WAKEstate, stateOccupancy.NREMstate, stateOccupancy.REMstate], 'stacked');
@@ -146,7 +194,7 @@ function plotStateOccupancy(stateOccupancy)
     
     xlabel('ZT Hour');
     ylabel('Percentage of Time Spent in Sleep State');
-    title('Pooled Sleep State Occupancy Over Time');
+    title(sprintf('%s %s - Sleep State Occupancy Over Time', animalName, condition));
     
     legend({'WAKEstate', 'NREMstate', 'REMstate'}, 'Location', 'NorthEast');
 end
@@ -198,7 +246,7 @@ function avgBoutsPerHour = countAvgBoutsPerHour(appropriateTimestamps, sleepStat
         binStart = startTime + (hour - 1) * binWidth;
         binEnd = binStart + binWidth;
         
-        binStates = sleepStates(appropriateTimestamps >= binStart && appropriateTimestamps < binEnd);
+        binStates = sleepStates(appropriateTimestamps >= binStart & appropriateTimestamps < binEnd);
         
         % Count the occurrences of each state
         wakeBouts = wakeBouts + sum(diff([0; binStates == 1]) == 1);
@@ -298,8 +346,21 @@ function avgDurations = computeAverageDurations(durations)
     end
 end
 
+%% Helper Function to aggregate data from multiple structures
+function aggregatedData = aggregateStructData(aggregatedData, newData)
+    states = fieldnames(newData);
+    for i = 1:length(states)
+        state = states{i};
+        if isfield(aggregatedData, state)
+            aggregatedData.(state) = [aggregatedData.(state); newData.(state)];
+        else
+            aggregatedData.(state) = newData.(state);
+        end
+    end
+end
+
 %% Function to plot bar graph for average durations, counts, or intervals
-function plotBarGraph(dataStruct, yLabel, titleText)
+function plotBarGraph(dataStruct, yLabel, titleText, animalName, condition)
     states = fieldnames(dataStruct);
     values = cellfun(@(f) dataStruct.(f), states);
     
@@ -307,11 +368,11 @@ function plotBarGraph(dataStruct, yLabel, titleText)
     bar(values);
     set(gca, 'XTickLabel', states);
     ylabel(yLabel);
-    title(titleText);
+    title(sprintf('%s %s - %s', animalName, condition, titleText));
 end
 
 %% Function to plot day vs night comparison bar graph
-function plotDayNightComparison(dayData, nightData, yLabel, titleText)
+function plotDayNightComparison(dayData, nightData, yLabel, titleText, animalName, condition)
     states = fieldnames(dayData);
     dayValues = cellfun(@(f) dayData.(f), states);
     nightValues = cellfun(@(f) nightData.(f), states);
@@ -334,6 +395,6 @@ function plotDayNightComparison(dayData, nightData, yLabel, titleText)
     
     set(gca, 'XTickLabel', states);
     ylabel(yLabel);
-    title(titleText);
+    title(sprintf('%s %s - %s', animalName, condition, titleText));
     legend('Day', 'Night');
 end
