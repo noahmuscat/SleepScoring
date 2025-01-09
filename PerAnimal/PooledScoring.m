@@ -20,6 +20,7 @@ for b = 1:length(baseDirs)
     allInterBoutIntervals = struct('WAKEstate', [], 'NREMstate', [], 'REMstate', []);
     allAvgDaytimeStateLengths = struct('WAKEstate', [], 'NREMstate', [], 'REMstate', []);
     allAvgNighttimeStateLengths = struct('WAKEstate', [], 'NREMstate', [], 'REMstate', []);
+    allAvgBoutsPerHour = struct('WAKEstate', [], 'NREMstate', [], 'REMstate', []); 
 
     % Get a list of all subfolders in the base folder
     subFolders = dir(baseFolder);
@@ -52,6 +53,10 @@ for b = 1:length(baseDirs)
             interBoutIntervals = computeInterBoutIntervals(sleepIntervals);
             allInterBoutIntervals = aggregateStructData(allInterBoutIntervals, interBoutIntervals);
 
+            % Compute average bouts per hour
+            avgBoutsPerHour = countAvgBoutsPerHour(appropriateTimestamps, sleepStates);
+            allAvgBoutsPerHour = aggregateStructData(allAvgBoutsPerHour, avgBoutsPerHour);
+
             % Average state length during daytime vs nighttime
             [avgDaytimeStateLengths, avgNighttimeStateLengths] = computeDayNightStateLengths(sleepIntervals, appropriateTimestamps);
             allAvgDaytimeStateLengths = aggregateStructData(allAvgDaytimeStateLengths, avgDaytimeStateLengths);
@@ -65,6 +70,7 @@ for b = 1:length(baseDirs)
     results.(validCondition).InterBoutIntervals = allInterBoutIntervals;
     results.(validCondition).AvgDaytimeStateLengths = allAvgDaytimeStateLengths;
     results.(validCondition).AvgNighttimeStateLengths = allAvgNighttimeStateLengths;
+    results.(validCondition).AvgBoutsPerHour = allAvgBoutsPerHour;
 
     %% plotting for individual condition
     % Calculate the average sleep state occupancy for each ZT hour
@@ -73,19 +79,20 @@ for b = 1:length(baseDirs)
 
     % Plot the pooled sleep state occupancy
     plotStateOccupancy(pooledStateOccupancy, animalName, condition);
-
-    % Calculate and plot pooled average bout durations
+    
+    % Plot pooled average bout durations
     pooledAvgBoutDurations = computeAverageBoutDurations(allBoutDurations);
     disp(['Pooled Average Bout Durations for ', condition, ':']);
     disp(pooledAvgBoutDurations);
-    plotBarGraph(pooledAvgBoutDurations, 'Average Bout Duration (s)', ['Pooled Average Bout Durations - ', condition], animalName);
-
-    % Calculate and plot pooled inter-bout intervals
+    plotBarGraph(pooledAvgBoutDurations, 'Average Bout Duration (s)', ['Pooled Average Bout Durations - ', condition], animalName); 
+    
+    % Plot pooled average inter-bout intervals
     pooledInterBoutIntervals = computeAverageDurations(allInterBoutIntervals);
     disp(['Pooled Inter-Bout Intervals for ', condition, ':']);
     disp(pooledInterBoutIntervals);
     plotBarGraph(pooledInterBoutIntervals, 'Average Inter-Bout Interval (s)', ['Pooled Inter-Bout Intervals - ', condition], animalName);
-
+    
+    
     % Calculate and plot pooled average daytime and nighttime state lengths
     pooledAvgDaytimeStateLengths = computeAverageDurations(allAvgDaytimeStateLengths);
     pooledAvgNighttimeStateLengths = computeAverageDurations(allAvgNighttimeStateLengths);
@@ -93,16 +100,22 @@ for b = 1:length(baseDirs)
     disp(pooledAvgDaytimeStateLengths);
     disp(['Pooled Average Nighttime State Lengths for ', condition, ':']);
     disp(pooledAvgNighttimeStateLengths);
-    plotDayNightComparison(pooledAvgDaytimeStateLengths, pooledAvgNighttimeStateLengths, 'Average State Length (s)', ['Pooled Average State Length by Day/Night - ', condition], animalName);
+    plotDayNightComparison(pooledAvgDaytimeStateLengths, pooledAvgNighttimeStateLengths, 'Average State Length (s)', ['Pooled Average State Length by Day/Night - ', condition], animalName); 
+    
+    % Plot the average bouts per hour
+    pooledAvgBoutsPerHour = computeAverageDurations(allAvgBoutsPerHour); 
+    disp(['Pooled Average Bouts Per Hour for ', condition, ':']);
+    disp(pooledAvgBoutsPerHour);
+    plotBarGraph(pooledAvgBoutsPerHour, 'Average Bouts Per Hour', ['Pooled Average Bouts Per Hour - ', condition], animalName);
+
 end
 
 %% Comparisons Across Conditions
 conditions = fieldnames(results);
-comparisonMetrics = {'BoutDurations', 'InterBoutIntervals', 'AvgDaytimeStateLengths', 'AvgNighttimeStateLengths'};
+comparisonMetrics = {'BoutDurations', 'InterBoutIntervals', 'AvgDaytimeStateLengths', 'AvgNighttimeStateLengths', 'AvgBoutsPerHour'};
 states = {'WAKEstate', 'NREMstate', 'REMstate'};
 
 % Initialize structures to hold the comparison data
-comparisonData = struct();
 for metric = 1:length(comparisonMetrics)
     metricName = comparisonMetrics{metric};
     comparisonData.(metricName) = struct();
@@ -117,10 +130,14 @@ for c = 1:length(conditions)
     condition = conditions{c};
     for metric = 1:length(comparisonMetrics)
         metricName = comparisonMetrics{metric};
+        avgValues = computeAverageDurations(results.(condition).(metricName)); % Adjusted line to correctly fetch avgValue
         for state = 1:length(states)
             stateName = states{state};
-            avgValue = computeAverageDurations(results.(condition).(metricName));
-            comparisonData.(metricName).(stateName)(c) = avgValue.(stateName);
+            if isfield(avgValues, stateName)
+                comparisonData.(metricName).(stateName)(c) = avgValues.(stateName);
+            else
+                comparisonData.(metricName).(stateName)(c) = NaN; % Handle missing values
+            end
         end
     end
 end
@@ -424,7 +441,7 @@ function aggregatedData = aggregateStructData(aggregatedData, newData)
 end
 
 %% Function to plot bar graph for average durations, counts, or intervals
-function plotBarGraph(dataStruct, yLabel, titleText, animalName, condition)
+function plotBarGraph(dataStruct, yLabel, titleText, animalName)
     states = fieldnames(dataStruct);
     values = cellfun(@(f) dataStruct.(f), states);
     
@@ -432,11 +449,11 @@ function plotBarGraph(dataStruct, yLabel, titleText, animalName, condition)
     bar(values);
     set(gca, 'XTickLabel', states);
     ylabel(yLabel);
-    title(sprintf('%s %s - %s', animalName, condition, titleText));
+    title(sprintf('%s %s - %s', animalName, titleText));
 end
 
 %% Function to plot day vs night comparison bar graph
-function plotDayNightComparison(dayData, nightData, yLabel, titleText, animalName, condition)
+function plotDayNightComparison(dayData, nightData, yLabel, titleText, animalName)
     states = fieldnames(dayData);
     dayValues = cellfun(@(f) dayData.(f), states);
     nightValues = cellfun(@(f) nightData.(f), states);
@@ -459,6 +476,6 @@ function plotDayNightComparison(dayData, nightData, yLabel, titleText, animalNam
     
     set(gca, 'XTickLabel', states);
     ylabel(yLabel);
-    title(sprintf('%s %s - %s', animalName, condition, titleText));
+    title(sprintf('%s %s - %s', animalName, titleText));
     legend('Day', 'Night');
 end
