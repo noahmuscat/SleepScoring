@@ -4,7 +4,7 @@ baseDirs = {'/data/Jeremy/Sleepscoring_Data_Noah/Canute/300Lux', ...
             '/data/Jeremy/Sleepscoring_Data_Noah/Canute/1000LuxWk4'};
 
 % Initialize a structure to hold the results for each condition
-results = struct();
+resultsSleepScoring = struct();
 
 for b = 1:length(baseDirs)
     baseFolder = baseDirs{b};
@@ -70,17 +70,13 @@ for b = 1:length(baseDirs)
     % per condition per animal
     pooledStateOccupancy = calculateStateOccupancy(allZTData);
 
-    results.(validCondition).ZTData = allZTData;
-    results.(validCondition).BoutDurations = allBoutDurations;
-    results.(validCondition).InterBoutIntervals = allInterBoutIntervals;
-    results.(validCondition).AvgDaytimeStateLengths = allAvgDaytimeStateLengths;
-    results.(validCondition).AvgNighttimeStateLengths = allAvgNighttimeStateLengths;
-    results.(validCondition).AvgBoutsPerHour = allAvgBoutsPerHour;
-    results.(validCondition).StateOccupancy = pooledStateOccupancy;
-
-    matFileName = 'metrics.mat';
-    matFilePath = fullfile(baseFolder, matFileName);
-    save(matFilePath, "results");
+    resultsSleepScoring.(validCondition).ZTData = allZTData;
+    resultsSleepScoring.(validCondition).BoutDurations = allBoutDurations;
+    resultsSleepScoring.(validCondition).InterBoutIntervals = allInterBoutIntervals;
+    resultsSleepScoring.(validCondition).AvgDaytimeStateLengths = allAvgDaytimeStateLengths;
+    resultsSleepScoring.(validCondition).AvgNighttimeStateLengths = allAvgNighttimeStateLengths;
+    resultsSleepScoring.(validCondition).AvgBoutsPerHour = allAvgBoutsPerHour;
+    resultsSleepScoring.(validCondition).StateOccupancy = pooledStateOccupancy;
 
     %% plotting for individual condition
 
@@ -117,8 +113,13 @@ for b = 1:length(baseDirs)
 
 end
 
+%% saving .mat
+matFileName = 'sleepScoringMetrics.mat';
+matFolderPath = '/data/Jeremy/Sleepscoring_Data_Noah/Canute';
+matFilePath = fullfile(matFolderPath, matFileName);
+save(matFilePath, "resultsSleepScoring");
 %% Comparisons Across Conditions
-conditions = fieldnames(results);
+conditions = fieldnames(resultsSleepScoring);
 comparisonMetrics = {'BoutDurations', 'InterBoutIntervals', 'AvgDaytimeStateLengths', 'AvgNighttimeStateLengths', 'AvgBoutsPerHour'};
 states = {'WAKEstate', 'NREMstate', 'REMstate'};
 
@@ -137,7 +138,7 @@ for c = 1:length(conditions)
     condition = conditions{c};
     for metric = 1:length(comparisonMetrics)
         metricName = comparisonMetrics{metric};
-        avgValues = computeAverageDurations(results.(condition).(metricName)); % Adjusted line to correctly fetch avgValue
+        avgValues = computeAverageDurations(resultsSleepScoring.(condition).(metricName)); % Adjusted line to correctly fetch avgValue
         for state = 1:length(states)
             stateName = states{state};
             if isfield(avgValues, stateName)
