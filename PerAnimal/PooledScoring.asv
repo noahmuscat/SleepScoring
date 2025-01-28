@@ -11,14 +11,6 @@ baseDirs = {'/Users/noahmuscat/University of Michigan Dropbox/Noah Muscat/EphysA
 % Initialize a structure to hold the results for each condition
 resultsSleepScoring = struct();
 
-% Define the save directory
-saveDir = '/Users/noahmuscat/Desktop';
-
-% Ensure the save directory exists
-if ~exist(saveDir, 'dir')
-    mkdir(saveDir);
-end
-
 for b = 1:length(baseDirs)
     baseFolder = baseDirs{b};
     [~, condition] = fileparts(baseFolder); % Extract condition name (e.g., '300Lux')
@@ -95,24 +87,19 @@ for b = 1:length(baseDirs)
 
     % Plot the pooled sleep state occupancy
     plotStateOccupancy(pooledStateOccupancy, animalName, condition);
-    % Save the figure
-    saveas(gcf, fullfile(saveDir, sprintf('%s_%s_SleepStateOccupancy.png', animalName, condition)));
     
     % Plot pooled average bout durations
     pooledAvgBoutDurations = computeAverageBoutDurations(allBoutDurations);
     disp(['Pooled Average Bout Durations for ', condition, ':']);
     disp(pooledAvgBoutDurations);
     plotBarGraph(pooledAvgBoutDurations, 'Average Bout Duration (s)', ['Pooled Average Bout Durations - ', condition], animalName); 
-    % Save the figure
-    saveas(gcf, fullfile(saveDir, sprintf('%s_%s_AvgBoutDurations.png', animalName, condition)));
-
+    
     % Plot pooled average inter-bout intervals
     pooledInterBoutIntervals = computeAverageDurations(allInterBoutIntervals);
     disp(['Pooled Inter-Bout Intervals for ', condition, ':']);
     disp(pooledInterBoutIntervals);
     plotBarGraph(pooledInterBoutIntervals, 'Average Inter-Bout Interval (s)', ['Pooled Inter-Bout Intervals - ', condition], animalName);
-    % Save the figure
-    saveas(gcf, fullfile(saveDir, sprintf('%s_%s_InterBoutIntervals.png', animalName, condition)));
+    
     
     % Calculate and plot pooled average daytime and nighttime state lengths
     pooledAvgDaytimeStateLengths = computeAverageDurations(allAvgDaytimeStateLengths);
@@ -122,16 +109,13 @@ for b = 1:length(baseDirs)
     disp(['Pooled Average Nighttime State Lengths for ', condition, ':']);
     disp(pooledAvgNighttimeStateLengths);
     plotDayNightComparison(pooledAvgDaytimeStateLengths, pooledAvgNighttimeStateLengths, 'Average State Length (s)', ['Pooled Average State Length by Day/Night - ', condition], animalName); 
-    % Save the figure
-    saveas(gcf, fullfile(saveDir, sprintf('%s_%s_DayNightStateLengths.png', animalName, condition)));
-
+    
     % Plot the average bouts per hour
     pooledAvgBoutsPerHour = computeAverageDurations(allAvgBoutsPerHour); 
     disp(['Pooled Average Bouts Per Hour for ', condition, ':']);
     disp(pooledAvgBoutsPerHour);
     plotBarGraph(pooledAvgBoutsPerHour, 'Average Bouts Per Hour', ['Pooled Average Bouts Per Hour - ', condition], animalName);
-    % Save the figure
-    saveas(gcf, fullfile(saveDir, sprintf('%s_%s_BoutsPerHour.png', animalName, condition)));
+
 end
 
 %% saving .mat
@@ -188,7 +172,6 @@ for metric = 1:length(comparisonMetrics)
     xticks(1:length(conditions));
     xticklabels(conditions);
     legend(barHandles, states, 'Location', 'Best');
-    saveas(gcf, fullfile(saveDir, sprintf('%s_Comparisons.png', metricName)));
 end
 
 %% Function to extract data from a .mat file and generate appropriate timestamps
