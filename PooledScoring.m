@@ -132,6 +132,7 @@ for b = 1:length(baseDirs)
     plotBarGraph(pooledAvgBoutsPerHour, 'Average Bouts Per Hour', ['Pooled Average Bouts Per Hour - ', condition], animalName);
     % Save the figure
     saveas(gcf, fullfile(saveDir, sprintf('%s_%s_BoutsPerHour.png', animalName, condition)));
+    
 end
 
 %% saving .mat
@@ -509,6 +510,5 @@ function plotDayNightComparison(dayData, nightData, yLabel, titleText, animalNam
     title(sprintf('%s %s - %s', animalName, titleText));
     legend('Day', 'Night');
 end
-
 
 
