@@ -70,4 +70,4 @@ legend(sleepStates, 'Location', 'best');
 xticks(1:length(conditions));
 ylim([0 200000])
 
-saveas(gcf, fullfile(saveDir, 'Canute%TimeSleepStateMiddle6.png'));
+saveas(gcf, fullfile(saveDir, 'CanuteTotalTimeSleepStateMiddle6.png'));
