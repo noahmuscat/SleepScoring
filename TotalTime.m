@@ -34,9 +34,9 @@ for conditionIdx = 1:length(validConditions)
 
     for ztPeriod = 1:2 % 1 for day, 2 for night
         if ztPeriod == 1
-            range = 3:8; % Day
+            range = 0:11; % Day
         else
-            range = 15:20; % Night
+            range = 12:23; % Night
         end
         
         for stateIdx = 1:length(sleepStates)
@@ -67,21 +67,21 @@ sgtitle('Harald - Total Time Spent in Sleep States per Condition');
 
 subplot(2, 1, 1); % Day
 bar(barData_Day, 'grouped');
-title('Day (ZT 3-8)');
+title('Day (ZT 0-11)');
 set(gca, 'XTickLabel', conditions);
 ylabel('Total Time');
 legend(sleepStates, 'Location', 'best');
 xticks(1:length(conditions));
-ylim([0 70000])
+ylim([0 100000])
 
 
 subplot(2, 1, 2); % Night 
 bar(barData_Night, 'grouped');
-title('Night (ZT 15-20)');
+title('Night (ZT 12-23)');
 set(gca, 'XTickLabel', conditions);
 ylabel('Total Time');
 legend(sleepStates, 'Location', 'best');
 xticks(1:length(conditions));
-ylim([0 70000])
+ylim([0 100000])
 
-saveas(gcf, fullfile(saveDir, 'HaraldTotalTimeSleepStateMiddle6.png'));
+saveas(gcf, fullfile(saveDir, 'HaraldTotalTimeSleepStateAll.png'));
