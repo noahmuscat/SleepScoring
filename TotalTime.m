@@ -8,7 +8,7 @@ validConditions = {'Cond_300Lux', 'Cond_1000LuxWk1', 'Cond_1000LuxWk4'};
 sleepStates = {'WAKE', 'NREM', 'REM'};
 stateValues = [1, 3, 5]; % Corresponding to WAKE, NREM, REM
 
-structName = CanuteV2Combined80;
+structName = HaraldV3Combined80;
 
 % Initialize data structure for storing total time
 totalTimeSpent = struct();
@@ -16,9 +16,22 @@ for i = 1:length(validConditions)
     totalTimeSpent.(validConditions{i}) = zeros(2, length(sleepStates)); % 2 for day/night
 end
 
-% Calculate total time for each condition and each ZT period
-for i = 1:length(validConditions)
-    condData = structName.(validConditions{i});
+% Data aggregation
+for conditionIdx = 1:length(validConditions)
+    condName = validConditions{conditionIdx};
+    condData = structName.(condName);
+
+    % Calculate the timeframe for the last 4 days
+    datetime_list = condData.ZT_Datetime;
+    endTime = datetime_list(end);
+    startTime = endTime - days(4);
+
+    % Create a mask for the last 4 days
+    last4DaysMask = (datetime_list >= startTime) & (datetime_list <= endTime);
+
+    % Filter the SleepState for the last 4 days
+    last4DaysSleepState = condData.SleepState(last4DaysMask);
+
     for ztPeriod = 1:2 % 1 for day, 2 for night
         if ztPeriod == 1
             range = 3:8; % Day
@@ -26,14 +39,15 @@ for i = 1:length(validConditions)
             range = 15:20; % Night
         end
         
-        for j = 1:length(sleepStates)
-            stateValue = stateValues(j);
-            
+        for stateIdx = 1:length(sleepStates)
+            stateValue = stateValues(stateIdx);
+
             % Identify indices for the current ZT range
-            ZTindices = ismember(hour(condData.ZT_Datetime), range);
+            ZTindices = ismember(hour(datetime_list(last4DaysMask)), range);
+
             % Count occurrences of each corresponding state value in the ZT range
-            totalTimeSpent.(validConditions{i})(ztPeriod, j) = ...
-                sum(condData.SleepState(ZTindices) == stateValue);
+            totalTimeSpent.(condName)(ztPeriod, stateIdx) = ...
+                sum(last4DaysSleepState(ZTindices) == stateValue);
         end
     end
 end
@@ -49,7 +63,7 @@ end
 
 % Generate plots
 figure;
-sgtitle('Total Time Spent in Sleep States per Condition');
+sgtitle('Harald - Total Time Spent in Sleep States per Condition');
 
 subplot(2, 1, 1); % Day
 bar(barData_Day, 'grouped');
@@ -58,7 +72,7 @@ set(gca, 'XTickLabel', conditions);
 ylabel('Total Time');
 legend(sleepStates, 'Location', 'best');
 xticks(1:length(conditions));
-ylim([0 200000])
+ylim([0 70000])
 
 
 subplot(2, 1, 2); % Night 
@@ -68,6 +82,6 @@ set(gca, 'XTickLabel', conditions);
 ylabel('Total Time');
 legend(sleepStates, 'Location', 'best');
 xticks(1:length(conditions));
-ylim([0 200000])
+ylim([0 70000])
 
-saveas(gcf, fullfile(saveDir, 'CanuteTotalTimeSleepStateMiddle6.png'));
+saveas(gcf, fullfile(saveDir, 'HaraldTotalTimeSleepStateMiddle6.png'));
